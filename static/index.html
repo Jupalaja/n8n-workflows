@@ -358,6 +358,7 @@
       margin-top: 1rem;
       padding-top: 1rem;
       border-top: 1px solid var(--border);
+      flex-wrap: wrap;
     }
 
     .action-btn {
@@ -386,6 +387,16 @@
 
     .action-btn.primary:hover {
       background: var(--primary-dark);
+    }
+
+    .action-btn.success {
+      background: var(--success);
+      color: white;
+      border-color: var(--success);
+    }
+
+    .action-btn.success:hover {
+      background: #059669;
     }
 
     /* Load More */
@@ -609,8 +620,6 @@
         <div class="search-section">
           <input type="text" id="searchInput" class="search-input"
             placeholder="Search workflows by name, description, or integration...">
-            <input type="text" id="newWorkflowName" class="search-input" placeholder="New workflow name..." style="flex: 0.5;">
-            <button id="createWorkflowBtn" class="action-btn primary" style="padding: 0.75rem 1rem;">Create & Open</button>
         </div>
 
         <div class="filter-section">
@@ -725,6 +734,7 @@
               <a id="downloadBtn" class="action-btn primary" href="#" download>📥 Download JSON</a>
               <button id="viewJsonBtn" class="action-btn">📄 View JSON</button>
               <button id="viewDiagramBtn" class="action-btn">📊 View Diagram</button>
+              <button id="createWorkflowBtn" class="action-btn success">🚀 Create in n8n</button>
             </div>
           </div>
 
@@ -776,8 +786,6 @@
 
         this.elements = {
           searchInput: document.getElementById('searchInput'),
-          newWorkflowName: document.getElementById('newWorkflowName'),
-          createWorkflowBtn: document.getElementById('createWorkflowBtn'),
           triggerFilter: document.getElementById('triggerFilter'),
           complexityFilter: document.getElementById('complexityFilter'),
           categoryFilter: document.getElementById('categoryFilter'),
@@ -806,6 +814,7 @@
           downloadBtn: document.getElementById('downloadBtn'),
           viewJsonBtn: document.getElementById('viewJsonBtn'),
           viewDiagramBtn: document.getElementById('viewDiagramBtn'),
+          createWorkflowBtn: document.getElementById('createWorkflowBtn'),
           jsonSection: document.getElementById('jsonSection'),
           jsonViewer: document.getElementById('jsonViewer'),
           diagramSection: document.getElementById('diagramSection'),
@@ -851,10 +860,6 @@
         this.elements.searchInput.addEventListener('input', (e) => {
           this.state.searchQuery = e.target.value;
           this.debounceSearch();
-        });
-
-        this.elements.createWorkflowBtn.addEventListener('click', () => {
-          this.createNewWorkflow();
         });
 
         this.elements.triggerFilter.addEventListener('change', (e) => {
@@ -917,6 +922,10 @@
 
         this.elements.viewDiagramBtn.addEventListener('click', () => {
           this.toggleDiagramView();
+        });
+
+        this.elements.createWorkflowBtn.addEventListener('click', () => {
+          this.createWorkflowFromCurrent();
         });
 
         // Copy button events
@@ -1005,39 +1014,55 @@
         }
       }
 
-      async createNewWorkflow() {
-        const name = this.elements.newWorkflowName.value.trim();
-        if (!name) {
-            alert('Please enter a name for the new workflow.');
-            return;
+      async createWorkflowFromCurrent() {
+        if (!this.currentWorkflow) {
+          alert('No workflow selected');
+          return;
         }
 
+        const workflowName = this.currentWorkflow.name;
         this.elements.createWorkflowBtn.disabled = true;
         this.elements.createWorkflowBtn.textContent = 'Creating...';
 
         try {
-            const result = await this.apiCall('/workflows/create', {
-                method: 'POST',
-                body: JSON.stringify({ name: name })
-            });
-            
-            // Open in new tab
-            window.open(result.url, '_blank');
-            
-            // Clear input
-            this.elements.newWorkflowName.value = '';
-            
-            // Refresh the list after a short delay to allow for indexing
-            setTimeout(() => {
-                this.resetAndSearch();
-            }, 1500);
+          // Get the full workflow JSON data first
+          const workflowData = await this.apiCall(`/workflows/${this.currentWorkflow.filename}`);
+          const workflowJson = workflowData.raw_json;
+
+          // Prepare the workflow for creation by removing ID and updating name
+          const newWorkflowData = {
+            ...workflowJson,
+            id: undefined, // Remove existing ID so n8n will create a new one
+            name: `Copy of ${workflowName}` // Give it a clear name
+          };
+
+          const result = await this.apiCall('/workflows/create-from-json', {
+            method: 'POST',
+            body: JSON.stringify({
+              name: newWorkflowData.name,
+              workflow: newWorkflowData
+            })
+          });
+          
+          // Open in new tab
+          window.open(result.url, '_blank');
+          
+          // Show success message
+          this.showCopySuccess('createWorkflowBtn', '✅ Created & Opened!');
+          
+          // Refresh the list after a short delay to allow for indexing
+          setTimeout(() => {
+            this.resetAndSearch();
+          }, 1500);
 
         } catch (error) {
-            console.error('Error creating workflow:', error);
-            alert('Error creating workflow: ' + error.message);
+          console.error('Error creating workflow:', error);
+          alert('Error creating workflow: ' + error.message);
         } finally {
+          setTimeout(() => {
             this.elements.createWorkflowBtn.disabled = false;
-            this.elements.createWorkflowBtn.textContent = 'Create & Open';
+            this.elements.createWorkflowBtn.textContent = '🚀 Create in n8n';
+          }, 2000);
         }
       }
 
@@ -1371,6 +1396,7 @@
         // Reset button states
         this.elements.viewJsonBtn.textContent = '📄 View JSON';
         this.elements.viewDiagramBtn.textContent = '📊 View Diagram';
+        this.elements.createWorkflowBtn.textContent = '🚀 Create in n8n';
 
         // Reset copy button states
         this.resetCopyButton('copyJsonBtn');
@@ -1515,12 +1541,12 @@
         }
       }
 
-      showCopySuccess(buttonId) {
+      showCopySuccess(buttonId, customText = null) {
         const button = document.getElementById(buttonId);
         if (!button) return;
 
         const originalText = button.innerHTML;
-        button.innerHTML = '✅ Copied!';
+        button.innerHTML = customText || '✅ Copied!';
         button.classList.add('copied');
 
         setTimeout(() => {

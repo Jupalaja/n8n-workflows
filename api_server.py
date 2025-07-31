@@ -82,8 +82,9 @@ class WorkflowSummary(BaseModel):
         return v
     
 
-class CreateWorkflowRequest(BaseModel):
+class CreateWorkflowFromJsonRequest(BaseModel):
     name: str
+    workflow: Dict[str, Any]
 
 
 class SearchResponse(BaseModel):
@@ -199,11 +200,10 @@ async def search_workflows(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error searching workflows: {str(e)}")
 
-@app.post("/api/workflows/create")
-async def create_workflow(payload: CreateWorkflowRequest, background_tasks: BackgroundTasks):
-    """Create an empty workflow in n8n, save it, and re-index."""
+@app.post("/api/workflows/create-from-json")
+async def create_workflow_from_json(payload: CreateWorkflowFromJsonRequest, background_tasks: BackgroundTasks):
+    """Create a workflow in n8n from provided JSON data, save it, and re-index."""
     n8n_api_url = os.environ.get("N8N_URL", "http://localhost:5678")
-    # For the URL returned to the browser, which might be different from the API URL (e.g., in Docker)
     n8n_public_url = os.environ.get("N8N_PUBLIC_URL", n8n_api_url)
     api_key = os.environ.get("N8N_API_KEY")
 
@@ -218,24 +218,16 @@ async def create_workflow(payload: CreateWorkflowRequest, background_tasks: Back
         "Content-Type": "application/json"
     }
 
-    workflow_data = {
-        "name": payload.name,
-        "nodes": [
-            {
-                "parameters": {},
-                "name": "Start",
-                "type": "n8n-nodes-base.start",
-                "typeVersion": 1,
-                "position": [250, 300],
-                "id": str(uuid.uuid4())
-            }
-        ],
-        "connections": {},
-        "settings": {}
-    }
+    # Prepare workflow data - remove read-only fields for creation
+    workflow_data = dict(payload.workflow)
+    workflow_data['name'] = payload.name  # Use the provided name
+    workflow_data.pop('id', None)
+    workflow_data.pop('active', None)
+    workflow_data.pop('createdAt', None)
+    workflow_data.pop('updatedAt', None)
 
     try:
-        # 1. Create workflow in n8n
+        # 1. Create workflow in n8n with the provided JSON
         create_response = requests.post(f"{n8n_api_url}/api/v1/workflows", headers=headers, json=workflow_data)
         create_response.raise_for_status()
         created_workflow = create_response.json()
@@ -243,7 +235,7 @@ async def create_workflow(payload: CreateWorkflowRequest, background_tasks: Back
         if not workflow_id:
             raise Exception("Workflow created, but ID not found in response.")
 
-        # 2. Get full workflow data from n8n to save it locally
+        # 2. Get full workflow data from n8n to save it locally (to ensure we have the complete data with IDs)
         get_response = requests.get(f"{n8n_api_url}/api/v1/workflows/{workflow_id}", headers=headers)
         get_response.raise_for_status()
         full_workflow_data = get_response.json()
@@ -265,7 +257,7 @@ async def create_workflow(payload: CreateWorkflowRequest, background_tasks: Back
             "id": workflow_id,
             "url": f"{n8n_public_url}/workflow/{workflow_id}",
             "filename": filename,
-            "message": "Workflow created and indexing started."
+            "message": "Workflow created from JSON and indexing started."
         }
     except requests.exceptions.RequestException as e:
         error_details = str(e)
