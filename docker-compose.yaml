@@ -5,3 +5,35 @@ services:
       context: .
     ports:
       - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - N8N_URL=http://n8n:5678
+      - N8N_PUBLIC_URL=http://localhost:5678
+    networks:
+      - n8n-network
+
+  n8n:
+    image: n8nio/n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      # Use localhost for local development
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - N8N_SECURE_COOKIE=false
+      # The webhook URL should be accessible from the outside world if you want to use webhooks from external services
+      - WEBHOOK_URL=http://localhost:5678
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - n8n-network
+
+volumes:
+  n8n_data:
+
+networks:
+  n8n-network:

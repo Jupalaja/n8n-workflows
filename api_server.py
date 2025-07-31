@@ -16,6 +16,8 @@ import os
 import asyncio
 from pathlib import Path
 import uvicorn
+import requests
+import uuid
 
 from workflow_db import WorkflowDatabase
 
@@ -79,6 +81,10 @@ class WorkflowSummary(BaseModel):
             return bool(v)
         return v
     
+
+class CreateWorkflowRequest(BaseModel):
+    name: str
+
 
 class SearchResponse(BaseModel):
     workflows: List[WorkflowSummary]
@@ -192,6 +198,85 @@ async def search_workflows(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error searching workflows: {str(e)}")
+
+@app.post("/api/workflows/create")
+async def create_workflow(payload: CreateWorkflowRequest, background_tasks: BackgroundTasks):
+    """Create an empty workflow in n8n, save it, and re-index."""
+    n8n_api_url = os.environ.get("N8N_URL", "http://localhost:5678")
+    # For the URL returned to the browser, which might be different from the API URL (e.g., in Docker)
+    n8n_public_url = os.environ.get("N8N_PUBLIC_URL", n8n_api_url)
+    api_key = os.environ.get("N8N_API_KEY")
+
+    if not api_key or api_key == "YOUR_N8N_API_KEY":
+        raise HTTPException(
+            status_code=500,
+            detail="N8N_API_KEY environment variable not set. Please add it to your .env file."
+        )
+
+    headers = {
+        "X-N8N-API-KEY": api_key,
+        "Content-Type": "application/json"
+    }
+
+    workflow_data = {
+        "name": payload.name,
+        "nodes": [
+            {
+                "parameters": {},
+                "name": "Start",
+                "type": "n8n-nodes-base.start",
+                "typeVersion": 1,
+                "position": [250, 300],
+                "id": str(uuid.uuid4())
+            }
+        ],
+        "connections": {},
+        "settings": {}
+    }
+
+    try:
+        # 1. Create workflow in n8n
+        create_response = requests.post(f"{n8n_api_url}/api/v1/workflows", headers=headers, json=workflow_data)
+        create_response.raise_for_status()
+        created_workflow = create_response.json()
+        workflow_id = created_workflow.get('id')
+        if not workflow_id:
+            raise Exception("Workflow created, but ID not found in response.")
+
+        # 2. Get full workflow data from n8n to save it locally
+        get_response = requests.get(f"{n8n_api_url}/api/v1/workflows/{workflow_id}", headers=headers)
+        get_response.raise_for_status()
+        full_workflow_data = get_response.json()
+        
+        # 3. Save it to a file
+        safe_name = "".join(c for c in payload.name if c.isalnum() or c in (' ', '_')).rstrip()
+        filename = f"{workflow_id}_{safe_name.replace(' ', '_')}.json"
+        file_path = Path("workflows") / filename
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(full_workflow_data, f, indent=2)
+
+        # 4. Re-index in the background
+        def run_indexing():
+            db.index_all_workflows(force_reindex=True)
+        
+        background_tasks.add_task(run_indexing)
+
+        return {
+            "id": workflow_id,
+            "url": f"{n8n_public_url}/workflow/{workflow_id}",
+            "filename": filename,
+            "message": "Workflow created and indexing started."
+        }
+    except requests.exceptions.RequestException as e:
+        error_details = str(e)
+        if e.response is not None:
+            try:
+                error_details = e.response.json().get('message', e.response.text)
+            except json.JSONDecodeError:
+                error_details = e.response.text
+        raise HTTPException(status_code=500, detail=f"Error communicating with n8n: {error_details}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 @app.get("/api/workflows/{filename}")
 async def get_workflow_detail(filename: str):

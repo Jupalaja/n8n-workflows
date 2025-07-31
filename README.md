@@ -6,7 +6,19 @@ A professionally organized collection of **2,053 n8n workflows** with a lightnin
 
 **Experience 100x performance improvement over traditional documentation!**
 
-### Quick Start - Fast Documentation System
+### Quick Start with Docker (Recommended)
+This is the easiest way to run both the documentation server and an n8n instance.
+
+```bash
+# Start both services. The --build flag is only needed the first time.
+docker-compose up --build
+
+# Access the services:
+# - Documentation: http://localhost:8000
+# - n8n Editor:    http://localhost:5678
+```
+
+### Quick Start with Local Python (Doc System Only)
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -116,7 +128,24 @@ Many workflow JSON files are conveniently named with the service name, often sep
 
 ## 🛠 Usage Instructions
 
-### Option 1: Modern Fast System (Recommended)
+### Option 1: Run with Docker (Recommended)
+This method runs both the documentation server and a fresh n8n instance. It's the simplest way to get everything running.
+
+```bash
+# Clone repository
+git clone <repo-url>
+cd n8n-workflows
+
+# Start both services
+docker-compose up --build
+
+# Access the services:
+# - Documentation: http://localhost:8000
+# - n8n Editor:    http://localhost:5678
+```
+After the first run, you can start the services with `docker-compose up`.
+
+### Option 2: Modern Fast System (Local Python)
 ```bash
 # Clone repository
 git clone <repo-url>
@@ -134,7 +163,7 @@ python run.py
 # - Real-time workflow statistics
 ```
 
-### Option 2: Development Mode
+### Option 3: Development Mode
 ```bash
 # Start with auto-reload for development
 python run.py --dev

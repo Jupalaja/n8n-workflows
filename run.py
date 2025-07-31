@@ -8,6 +8,7 @@ import sys
 import os
 import argparse
 from pathlib import Path
+from dotenv import load_dotenv
 
 
 def print_banner():
@@ -35,6 +36,11 @@ def check_requirements() -> bool:
     except ImportError:
         missing_deps.append("fastapi")
     
+    try:
+        import dotenv
+    except ImportError:
+        missing_deps.append("python-dotenv")
+
     if missing_deps:
         print(f"❌ Missing dependencies: {', '.join(missing_deps)}")
         print("💡 Install with: pip install -r requirements.txt")
@@ -105,6 +111,7 @@ def start_server(host: str = "127.0.0.1", port: int = 8000, reload: bool = False
 
 def main():
     """Main entry point with command line arguments."""
+    load_dotenv()
     parser = argparse.ArgumentParser(
         description="N8N Workflows Search Engine",
         formatter_class=argparse.RawDescriptionHelpFormatter,
