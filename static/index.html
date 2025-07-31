@@ -1020,7 +1020,7 @@
           return;
         }
 
-        const workflowName = this.currentWorkflow.name;
+        const workflowName = `${this.currentWorkflow.name}`;
         this.elements.createWorkflowBtn.disabled = true;
         this.elements.createWorkflowBtn.textContent = 'Creating...';
 
@@ -1029,18 +1029,11 @@
           const workflowData = await this.apiCall(`/workflows/${this.currentWorkflow.filename}`);
           const workflowJson = workflowData.raw_json;
 
-          // Prepare the workflow for creation by removing ID and updating name
-          const newWorkflowData = {
-            ...workflowJson,
-            id: undefined, // Remove existing ID so n8n will create a new one
-            name: `Copy of ${workflowName}` // Give it a clear name
-          };
-
           const result = await this.apiCall('/workflows/create-from-json', {
             method: 'POST',
             body: JSON.stringify({
-              name: newWorkflowData.name,
-              workflow: newWorkflowData
+              name: workflowName,
+              workflow: workflowJson
             })
           });
           

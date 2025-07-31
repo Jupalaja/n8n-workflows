@@ -7,7 +7,4 @@ services:
       - "8000:8000"
     env_file:
       - .env
-    environment:
-      # N8N_URL is loaded from .env. Ensure it's reachable from this container.
-      # For n8n on host, use http://host.docker.internal:5678 on Docker Desktop.
-      - N8N_PUBLIC_URL=http://localhost:5678
+

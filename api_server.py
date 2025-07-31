@@ -218,17 +218,31 @@ async def create_workflow_from_json(payload: CreateWorkflowFromJsonRequest, back
         "Content-Type": "application/json"
     }
 
-    # Prepare workflow data - remove read-only fields for creation
     workflow_data = dict(payload.workflow)
-    workflow_data['name'] = payload.name  # Use the provided name
-    workflow_data.pop('id', None)
-    workflow_data.pop('active', None)
-    workflow_data.pop('createdAt', None)
-    workflow_data.pop('updatedAt', None)
+
+    # Build a clean payload with only allowed fields for workflow creation
+    clean_payload = {
+        "name": payload.name,
+        "nodes": workflow_data.get("nodes", []),
+        "connections": workflow_data.get("connections", {}),
+    }
+
+    # Handle staticData if it exists and is not null
+    if workflow_data.get("staticData") is not None:
+        clean_payload["staticData"] = workflow_data.get("staticData")
+
+    # Handle settings, ensuring it's a valid dict and cleaning null values
+    original_settings = workflow_data.get("settings")
+    if isinstance(original_settings, dict):
+        # Filter out keys with null values as they are not allowed by the API
+        clean_payload["settings"] = {k: v for k, v in original_settings.items() if v is not None}
+    else:
+        # 'settings' is a required property, so ensure it exists
+        clean_payload["settings"] = {}
 
     try:
-        # 1. Create workflow in n8n with the provided JSON
-        create_response = requests.post(f"{n8n_api_url}/api/v1/workflows", headers=headers, json=workflow_data)
+        # 1. Create workflow in n8n with the cleaned JSON
+        create_response = requests.post(f"{n8n_api_url}/api/v1/workflows", headers=headers, json=clean_payload)
         create_response.raise_for_status()
         created_workflow = create_response.json()
         workflow_id = created_workflow.get('id')
