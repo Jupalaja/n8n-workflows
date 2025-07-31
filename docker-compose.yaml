@@ -1,11 +1,7 @@
 services:
   doc:
-    build: .
-    image: n8n-workflows-doc:latest
+    image: workflows-doc:latest
+    build:
+      context: .
     ports:
       - "8000:8000"
-    volumes:
-      - workflows-db:/app/database
-      - ./workflows:/app/workflows
-volumes:
-  workflows-db:
