@@ -1,19 +1,22 @@
-FROM python:3.11-slim
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim-buster
+
+# Set environment variables for Python
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file into the container
+# Copy the dependencies file to the working directory
 COPY requirements.txt .
 
-# Install any needed packages specified in requirements.txt
+# Install packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code into the container
+# Copy the rest of the application's code to the working directory
 COPY . .
 
-# Expose the port the app runs on
-EXPOSE 8000
-
-# Run the application, ensuring it's accessible from outside the container
+# The command to run when the container starts.
+# Binds to 0.0.0.0 to be accessible from outside the container.
 CMD ["python", "run.py", "--host", "0.0.0.0"]
