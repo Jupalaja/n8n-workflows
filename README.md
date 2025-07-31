@@ -7,15 +7,17 @@ A professionally organized collection of **2,053 n8n workflows** with a lightnin
 **Experience 100x performance improvement over traditional documentation!**
 
 ### Quick Start with Docker (Recommended)
-This is the easiest way to run both the documentation server and an n8n instance.
+This is the easiest way to run the documentation system. **Note:** This setup no longer includes an n8n instance; you must run it separately.
+
+1.  **Ensure n8n is running** and accessible from your machine.
+2.  **Configure `.env`:** Edit the `.env` file and set `N8N_URL` and `N8N_API_KEY` to connect to your n8n instance.
 
 ```bash
-# Start both services. The --build flag is only needed the first time.
+# Start the documentation service. The --build flag is only needed the first time.
 docker-compose up --build
 
-# Access the services:
+# Access the documentation:
 # - Documentation: http://localhost:8000
-# - n8n Editor:    http://localhost:5678
 ```
 
 ### Quick Start with Local Python (Doc System Only)
@@ -129,21 +131,24 @@ Many workflow JSON files are conveniently named with the service name, often sep
 ## 🛠 Usage Instructions
 
 ### Option 1: Run with Docker (Recommended)
-This method runs both the documentation server and a fresh n8n instance. It's the simplest way to get everything running.
+This method runs the documentation server in Docker. It requires that you have a separate n8n instance already running.
 
 ```bash
 # Clone repository
 git clone <repo-url>
 cd n8n-workflows
 
-# Start both services
+# IMPORTANT: Edit the .env file to set N8N_URL and N8N_API_KEY for your n8n instance.
+# If running the doc server in Docker and n8n on the host, you may need to use:
+# N8N_URL=http://host.docker.internal:5678
+
+# Start the documentation service
 docker-compose up --build
 
-# Access the services:
+# Access the service:
 # - Documentation: http://localhost:8000
-# - n8n Editor:    http://localhost:5678
 ```
-After the first run, you can start the services with `docker-compose up`.
+After the first run, you can start the service with `docker-compose up`.
 
 ### Option 2: Modern Fast System (Local Python)
 ```bash
@@ -487,3 +492,4 @@ This comprehensive collection includes workflows from:
 ---
 
 [中文](./README_ZH.md)
+
