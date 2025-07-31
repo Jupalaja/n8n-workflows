@@ -1,0 +1,8 @@
+services:
+  doc:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./database:/app/database
+      - ./workflows:/app/workflows
